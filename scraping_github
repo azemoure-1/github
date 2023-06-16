@@ -1,0 +1,67 @@
+import requests
+import pandas as pd
+import time
+
+api_tokens = [
+    "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",
+    "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",
+    "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"
+]
+
+def make_api_request(base_url, headers, query_string, per_page, page):
+    api_url = f"{base_url}?q={query_string}&per_page={per_page}&page={page}"
+    response = requests.get(api_url, headers=headers)
+    return response
+
+def get_repository_data(created_date):
+    base_url = "https://api.github.com/search/repositories"
+    per_page = 100
+    page = 1
+    repositories = []
+
+    for token in api_tokens:
+        headers = {
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "My GitHub Scraper",
+            "Authorization": f"Token {token}"
+        }
+
+        created_date_query = f"created:{created_date.strftime('%Y-%m-%d')}"
+
+        while len(repositories) < 1000:
+            response = make_api_request(base_url, headers, created_date_query, per_page, page)
+            if response.status_code == 403:
+                print(f"Rate limit exceeded. Waiting for 10 seconds...")
+                time.sleep(10)
+                continue
+            response.raise_for_status()
+            data = response.json()
+            repositories.extend(data["items"])
+
+            remaining_count = int(response.headers.get("X-RateLimit-Remaining", 0))
+
+            if remaining_count == 0 or len(data["items"]) < per_page:
+                break
+
+            page += 1
+
+        if len(repositories) == 1000:
+            break
+
+    return repositories[:1000]
+
+start_date = pd.Timestamp(2023, 1, 1)
+end_date = pd.Timestamp(2023, 5, 31)
+
+repositories = []
+for date in pd.date_range(start_date, end_date):
+    try:
+        repositories.extend(get_repository_data(date))
+    except requests.exceptions.HTTPError as e:
+        print(f"Error occurred while retrieving data for {date.date()}: {e}")
+        continue
+
+df = pd.DataFrame(repositories)
+
+print(df.shape)
+
