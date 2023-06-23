@@ -3,9 +3,9 @@ import pandas as pd
 import time
 
 api_tokens = [
-    "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",
-    "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",
-    "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"
+    "--",
+    "--",
+    "--"
 ]
 
 def make_api_request(base_url, headers, query_string, per_page, page):
